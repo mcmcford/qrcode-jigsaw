@@ -7,15 +7,15 @@
 include <qr_data.scad>;
 
 // best to keep this a square, we don't account for non-square puzzles in the code below (it will just stretch the QR code).
-rows = 4;
-cols = 4;
+rows = 8;
+cols = 8;
 
 // again, best keeping this a square
-piece_w_mm = 40;
-piece_h_mm = 40;
+piece_w_mm = 15;
+piece_h_mm = 15;
 
 // how big the tabs are, in mm. Adjusting this will change the overall size of the puzzle, but not the size of the QR code pattern on top.
-tab_r_mm   = 8;
+tab_r_mm   = 3;
 thick_mm   = 4;
 gap_mm     = 5;
 
