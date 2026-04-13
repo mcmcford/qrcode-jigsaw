@@ -6,32 +6,45 @@
 
 include <qr_data.scad>;
 
+// best to keep this a square, we don't account for non-square puzzles in the code below (it will just stretch the QR code).
 rows = 4;
 cols = 4;
 
+// again, best keeping this a square
 piece_w_mm = 40;
 piece_h_mm = 40;
+
+// how big the tabs are, in mm. Adjusting this will change the overall size of the puzzle, but not the size of the QR code pattern on top.
 tab_r_mm   = 8;
 thick_mm   = 4;
 gap_mm     = 5;
 
+// How much should the QR code pattern stick out from the surface of the pieces? 
+// Adjust this to make it more or less visible, 2mm should be more than enough, 1mm should also be find on any decent printer
 qr_relief_mm = 2;
+
+// Colours for display only, makes no difference to the actual output
 top_color     = [0.85, 0.85, 0.85];
 qr_color      = [0.10, 0.10, 0.10];
 
 arc_n = 16;
 
+// Overall footprint of the laid-out puzzle, including the display gaps between pieces.
 puzzle_w_mm = cols * piece_w_mm + (cols - 1) * gap_mm;
 puzzle_h_mm = rows * piece_h_mm + (rows - 1) * gap_mm;
 
+// Size of one QR module before the full code is scaled to the puzzle footprint.
 qr_unit_mm = qr_size_mm / len(qr_rows);
 
+// Return intermediate points along an arc so each tab edge can be approximated as a polygon.
 function arc_mid(cx, cy, r, a1, a2, n=arc_n) =
     [for (i = [1 : n - 1])
         [cx + r * cos(a1 + (a2 - a1) * i / n),
          cy + r * sin(a1 + (a2 - a1) * i / n)]
     ];
 
+// Each edge helper returns a point list for one side of a piece.
+// sign = 0 gives a flat border edge, positive/negative values produce opposite tab directions.
 function edge_bottom(x0, x1, y, sign, d, n=arc_n) =
     let(cx = (x0 + x1) / 2)
     sign == 0
@@ -72,8 +85,10 @@ function edge_left(x, y0, y1, sign, d, n=arc_n) =
             [[x, cy - d], [x, y0]]
           );
 
+// Alternate tab direction like a checkerboard so neighboring pieces always match.
 function tab_sign(r, c) = ((r + c) % 2 == 0) ? 1 : -1;
 
+// Build a closed 2D outline by walking around the piece clockwise.
 function piece_pts(x, y, w, h, b, r, t, l, d, n=arc_n) =
     concat(
         [[x, y]],
@@ -92,6 +107,7 @@ module piece_base(x, y, w, h, b, r, t, l, d, hgt) {
         piece_shape(x, y, w, h, b, r, t, l, d);
 }
 
+// Convert the QR matrix into a sheet of tiny squares that can later be clipped per piece.
 module qr_2d_sheet() {
     union() {
         for (yy = [0 : len(qr_rows) - 1]) {
@@ -107,6 +123,7 @@ module qr_2d_sheet() {
 }
 
 module qr_on_piece(x, y, w, h, b, r, t, l, d) {
+    // Sink the QR layer by a tiny epsilon so it cleanly touches the base without z-fighting.
     z_eps_mm = 0.01;
     translate([0, 0, thick_mm - z_eps_mm])
         color(qr_color)
@@ -123,14 +140,17 @@ module qr_on_piece(x, y, w, h, b, r, t, l, d) {
                 }
 }
 
+// Build every piece in place, then add only the part of the QR that lands on that outline.
 union() {
     for (r = [0 : rows - 1]) {
         for (c = [0 : cols - 1]) {
+            // Border pieces get flat outer edges; interior edges alternate tab direction.
             bottom = (r == 0)        ? 0 : -tab_sign(r - 1, c);
             top    = (r == rows - 1) ? 0 :  tab_sign(r, c);
             left   = (c == 0)        ? 0 : -tab_sign(r, c - 1);
             right  = (c == cols - 1) ? 0 :  tab_sign(r, c);
 
+            // Pieces are spaced apart by gap_mm for previewing and exporting.
             px_mm = c * (piece_w_mm + gap_mm);
             py_mm = r * (piece_h_mm + gap_mm);
 
