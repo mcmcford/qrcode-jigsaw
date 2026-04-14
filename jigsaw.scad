@@ -122,21 +122,32 @@ module qr_2d_sheet() {
     }
 }
 
-module qr_on_piece(x, y, w, h, b, r, t, l, d) {
+module qr_on_piece(x, y, w, h, b, r_tab, t, l, d, grid_r, grid_c) {
     // Sink the QR layer by a tiny epsilon so it cleanly touches the base without z-fighting.
     z_eps_mm = 0.01;
+    
+    // Calculate the logical grid position of this piece (without gaps).
+    logical_x_mm = grid_c * piece_w_mm;
+    logical_y_mm = grid_r * piece_h_mm;
+    
+    // Calculate the contiguous footprint (without gaps) for proper QR alignment across pieces.
+    contiguous_w_mm = cols * piece_w_mm;
+    contiguous_h_mm = rows * piece_h_mm;
+    
     translate([0, 0, thick_mm - z_eps_mm])
         color(qr_color)
             linear_extrude(height = qr_relief_mm + z_eps_mm)
                 intersection() {
-                    // Center the QR over the full puzzle footprint.
-                    translate([puzzle_w_mm / 2, puzzle_h_mm / 2])
-                        scale([puzzle_w_mm / qr_size_mm, puzzle_h_mm / qr_size_mm])
-                            translate([-qr_size_mm / 2, -qr_size_mm / 2])
-                                qr_2d_sheet();
+                    // Center the QR over the contiguous puzzle footprint (without gaps).
+                    // Apply QR code centered on the full grid, then translate by display offset.
+                    translate([x - logical_x_mm, y - logical_y_mm, 0])
+                        translate([contiguous_w_mm / 2, contiguous_h_mm / 2])
+                            scale([contiguous_w_mm / qr_size_mm, contiguous_h_mm / qr_size_mm])
+                                translate([-qr_size_mm / 2, -qr_size_mm / 2])
+                                    qr_2d_sheet();
 
                     // Clip it to the current piece.
-                    piece_shape(x, y, w, h, b, r, t, l, d);
+                    piece_shape(x, y, w, h, b, r_tab, t, l, d);
                 }
 }
 
@@ -157,7 +168,7 @@ union() {
             color(top_color)
                 piece_base(px_mm, py_mm, piece_w_mm, piece_h_mm, bottom, right, top, left, tab_r_mm, thick_mm);
 
-            qr_on_piece(px_mm, py_mm, piece_w_mm, piece_h_mm, bottom, right, top, left, tab_r_mm);
+            qr_on_piece(px_mm, py_mm, piece_w_mm, piece_h_mm, bottom, right, top, left, tab_r_mm, r, c);
         }
     }
 }
