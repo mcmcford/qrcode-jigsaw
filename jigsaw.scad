@@ -1,13 +1,21 @@
 // Requires qr_data.scad in the same folder.
-// qr_data.scad must define:
-//   qr_size_mm = ...;
+// qr_data.scad can define either a QR overlay:
+//   overlay_mode = "qr";
+//   qr_size_mm = ...; or overlay_size_mm = ...;
 //   qr_rows = [...];
-// that is all handled by main.py, so you can just run that to generate qr_data.scad before rendering this file.
+// or a text overlay:
+//   overlay_mode = "text";
+//   overlay_text = "...";
+//   overlay_text_lines = ["...", "..."];  // optional for multiline text
+//   overlay_text_font = "...";              // optional
+//   overlay_text_size_mm = ...;              // optional
+//   overlay_text_spacing = ...;              // optional
+// main.py can generate either form before rendering this file.
 
 include <qr_data.scad>;
 
 // best to keep this a square, we don't account for non-square puzzles in the code below (it will just stretch the QR code).
-rows = 8;
+rows = 4;
 cols = 8;
 
 // again, best keeping this a square
@@ -17,10 +25,10 @@ piece_h_mm = 15;
 // how big the tabs are, in mm. Adjusting this will change the overall size of the puzzle, but not the size of the QR code pattern on top.
 tab_r_mm   = 3;
 thick_mm   = 4;
-gap_mm     = 5;
+gap_mm     = 2;
 
-// How much should the QR code pattern stick out from the surface of the pieces? 
-// Adjust this to make it more or less visible, 2mm should be more than enough, 1mm should also be find on any decent printer
+// How much should the overlay pattern stick out from the surface of the pieces?
+// Adjust this to make it more or less visible, 2mm should be more than enough, 1mm should also be fine on any decent printer
 qr_relief_mm = 2;
 
 // Colours for display only, makes no difference to the actual output
@@ -34,7 +42,25 @@ puzzle_w_mm = cols * piece_w_mm + (cols - 1) * gap_mm;
 puzzle_h_mm = rows * piece_h_mm + (rows - 1) * gap_mm;
 
 // Size of one QR module before the full code is scaled to the puzzle footprint.
-qr_unit_mm = qr_size_mm / len(qr_rows);
+overlay_mode_value = is_undef(overlay_mode) ? "qr" : overlay_mode;
+overlay_size_mm_value = is_undef(overlay_size_mm)
+    ? (is_undef(qr_size_mm) ? 100 : qr_size_mm)
+    : overlay_size_mm;
+
+overlay_text_value = is_undef(overlay_text) ? "HELLO" : overlay_text;
+overlay_text_lines_value = is_undef(overlay_text_lines)
+    ? [overlay_text_value]
+    : overlay_text_lines;
+overlay_text_font_value = is_undef(overlay_text_font)
+    ? "Liberation Sans:style=Bold"
+    : overlay_text_font;
+overlay_text_spacing_value = is_undef(overlay_text_spacing) ? 1.0 : overlay_text_spacing;
+overlay_text_line_spacing_value = is_undef(overlay_text_line_spacing) ? 1.15 : overlay_text_line_spacing;
+overlay_text_margin_mm_value = is_undef(overlay_text_margin_mm)
+    ? min(piece_w_mm, piece_h_mm) * 0.4
+    : overlay_text_margin_mm;
+
+qr_unit_mm = overlay_mode_value == "qr" ? overlay_size_mm_value / len(qr_rows) : 0;
 
 // Return intermediate points along an arc so each tab edge can be approximated as a polygon.
 function arc_mid(cx, cy, r, a1, a2, n=arc_n) =
@@ -122,7 +148,57 @@ module qr_2d_sheet() {
     }
 }
 
-module qr_on_piece(x, y, w, h, b, r_tab, t, l, d, grid_r, grid_c) {
+module text_2d_sheet(sheet_w_mm, sheet_h_mm) {
+    text_box_w_mm = max(1, sheet_w_mm - 2 * overlay_text_margin_mm_value);
+    text_box_h_mm = max(1, sheet_h_mm - 2 * overlay_text_margin_mm_value);
+    line_count = max(1, len(overlay_text_lines_value));
+    base_text_size_mm = 10;
+    line_pitch_mm = base_text_size_mm * overlay_text_line_spacing_value;
+
+    translate([sheet_w_mm / 2, sheet_h_mm / 2])
+        if (is_undef(overlay_text_size_mm)) {
+            resize([text_box_w_mm, text_box_h_mm])
+                union() {
+                    for (line_idx = [0 : line_count - 1]) {
+                        translate([0, ((line_count - 1) / 2 - line_idx) * line_pitch_mm])
+                            text(
+                                overlay_text_lines_value[line_idx],
+                                size = base_text_size_mm,
+                                font = overlay_text_font_value,
+                                halign = "center",
+                                valign = "center",
+                                spacing = overlay_text_spacing_value
+                            );
+                    }
+                }
+        } else {
+            union() {
+                for (line_idx = [0 : line_count - 1]) {
+                    translate([0, ((line_count - 1) / 2 - line_idx) * overlay_text_size_mm * overlay_text_line_spacing_value])
+                        text(
+                            overlay_text_lines_value[line_idx],
+                            size = overlay_text_size_mm,
+                            font = overlay_text_font_value,
+                            halign = "center",
+                            valign = "center",
+                            spacing = overlay_text_spacing_value
+                        );
+                }
+            }
+        }
+}
+
+module overlay_2d_sheet(sheet_w_mm, sheet_h_mm) {
+    if (overlay_mode_value == "qr") {
+        qr_2d_sheet();
+    } else if (overlay_mode_value == "text") {
+        text_2d_sheet(sheet_w_mm, sheet_h_mm);
+    } else {
+        echo(str("Unsupported overlay_mode: ", overlay_mode_value));
+    }
+}
+
+module overlay_on_piece(x, y, w, h, b, r_tab, t, l, d, grid_r, grid_c) {
     // Sink the QR layer by a tiny epsilon so it cleanly touches the base without z-fighting.
     z_eps_mm = 0.01;
     
@@ -138,20 +214,24 @@ module qr_on_piece(x, y, w, h, b, r_tab, t, l, d, grid_r, grid_c) {
         color(qr_color)
             linear_extrude(height = qr_relief_mm + z_eps_mm)
                 intersection() {
-                    // Center the QR over the contiguous puzzle footprint (without gaps).
-                    // Apply QR code centered on the full grid, then translate by display offset.
+                    // Center the overlay over the contiguous puzzle footprint (without gaps).
+                    // Apply the full overlay on the logical grid, then translate by display offset.
                     translate([x - logical_x_mm, y - logical_y_mm, 0])
-                        translate([contiguous_w_mm / 2, contiguous_h_mm / 2])
-                            scale([contiguous_w_mm / qr_size_mm, contiguous_h_mm / qr_size_mm])
-                                translate([-qr_size_mm / 2, -qr_size_mm / 2])
-                                    qr_2d_sheet();
+                        if (overlay_mode_value == "qr") {
+                            translate([contiguous_w_mm / 2, contiguous_h_mm / 2])
+                                scale([contiguous_w_mm / overlay_size_mm_value, contiguous_h_mm / overlay_size_mm_value])
+                                    translate([-overlay_size_mm_value / 2, -overlay_size_mm_value / 2])
+                                        overlay_2d_sheet(contiguous_w_mm, contiguous_h_mm);
+                        } else {
+                            overlay_2d_sheet(contiguous_w_mm, contiguous_h_mm);
+                        }
 
                     // Clip it to the current piece.
                     piece_shape(x, y, w, h, b, r_tab, t, l, d);
                 }
 }
 
-// Build every piece in place, then add only the part of the QR that lands on that outline.
+// Build every piece in place, then add only the part of the overlay that lands on that outline.
 union() {
     for (r = [0 : rows - 1]) {
         for (c = [0 : cols - 1]) {
@@ -168,7 +248,7 @@ union() {
             color(top_color)
                 piece_base(px_mm, py_mm, piece_w_mm, piece_h_mm, bottom, right, top, left, tab_r_mm, thick_mm);
 
-            qr_on_piece(px_mm, py_mm, piece_w_mm, piece_h_mm, bottom, right, top, left, tab_r_mm, r, c);
+            overlay_on_piece(px_mm, py_mm, piece_w_mm, piece_h_mm, bottom, right, top, left, tab_r_mm, r, c);
         }
     }
 }
