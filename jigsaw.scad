@@ -15,17 +15,17 @@
 include <qr_data.scad>;
 
 // best to keep this a square, we don't account for non-square puzzles in the code below (it will just stretch the QR code).
-rows = 4;
-cols = 8;
+rows = 3;
+cols = 6;
 
 // again, best keeping this a square
-piece_w_mm = 15;
-piece_h_mm = 15;
+piece_w_mm = 30;
+piece_h_mm = 30;
 
 // how big the tabs are, in mm. Adjusting this will change the overall size of the puzzle, but not the size of the QR code pattern on top.
-tab_r_mm   = 3;
+tab_r_mm   = 6;
 thick_mm   = 4;
-gap_mm     = 2;
+gap_mm     = 4;
 
 // How much should the overlay pattern stick out from the surface of the pieces?
 // Adjust this to make it more or less visible, 2mm should be more than enough, 1mm should also be fine on any decent printer
