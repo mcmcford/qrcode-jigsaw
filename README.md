@@ -33,6 +33,16 @@ You can also tune the text appearance from the generator:
 python main.py --mode text --font "Liberation Serif:style=Bold" --size-mm 28 --spacing 1.1 "HELLO WORLD"
 ```
 
+For new lines in text mode, use `\n` on linux/mac or `\`n` in powershell:
+
+```bash
+python main.py --mode text $"LINE 1\nLINE 2\nLINE 3"
+```
+
+```powershell
+python main.py --mode text "LINE 1`nLINE 2`nLINE 3"
+```
+
 ## SCAD Variables
 
 You can tweak these values near the top of `jigsaw.scad`:
