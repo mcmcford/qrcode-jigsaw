@@ -25,7 +25,7 @@ piece_h_mm = 30;
 // how big the tabs are, in mm. Adjusting this will change the overall size of the puzzle, but not the size of the QR code pattern on top.
 tab_r_mm   = 6;
 thick_mm   = 4;
-gap_mm     = 8;
+gap_mm     = 6;
 
 // How much should the overlay pattern stick out from the surface of the pieces?
 // Adjust this to make it more or less visible, 2mm should be more than enough, 1mm should also be fine on any decent printer
@@ -50,7 +50,10 @@ tab_neck_width_k = 0.74;     // neck width as a fraction of the shoulder/head wi
 tab_neck_min_k = 0.58;       // minimum neck width as a fraction of tab_r_mm
 tab_shoulder_depth_k = 0.52; // depth where the tab reaches its locking shoulder
 tab_crown_side_k = 0.27;     // roundness of the crown between the shoulders
-tab_fit_clearance_mm = 1; // male tabs shrink and female sockets expand by this amount
+tab_fit_clearance_mm = 0.25; // baseline clearance for the tab depth/inset fit
+tab_width_fit_clearance_mm = tab_fit_clearance_mm; // width clearance before the printable minimum clamp
+tab_width_extra_margin_mm = 0.4; // extra side-to-side looseness after clamping; increase if tabs still bind
+tab_depth_fit_clearance_mm = tab_fit_clearance_mm; // keep depth/vertical fit unchanged
 
 // Overall footprint of the laid-out puzzle, including the display gaps between pieces.
 puzzle_w_mm = cols * piece_w_mm + (cols - 1) * gap_mm;
@@ -156,13 +159,14 @@ function lock_tab_local_point(u, head_w, neck_w, amp, p) =
           );
 
 function signed_tab_width(tab_w, sign) =
-    max(tab_r_mm * 1.35, tab_w + (sign > 0 ? -2 * tab_fit_clearance_mm : 2 * tab_fit_clearance_mm));
+    max(tab_r_mm * 1.35, tab_w + (sign > 0 ? -2 * tab_width_fit_clearance_mm : 2 * tab_width_fit_clearance_mm))
+        + (sign > 0 ? -tab_width_extra_margin_mm : tab_width_extra_margin_mm);
 
 function tab_neck_width(head_w) =
     max(tab_r_mm * tab_neck_min_k, head_w * tab_neck_width_k);
 
 function signed_tab_amp(tab_amp, sign) =
-    max(tab_r_mm * 0.35, tab_amp + (sign > 0 ? -tab_fit_clearance_mm : tab_fit_clearance_mm));
+    max(tab_r_mm * 0.35, tab_amp + (sign > 0 ? -tab_depth_fit_clearance_mm : tab_depth_fit_clearance_mm));
 
 function tab_mid_bottom(cx, neck_w, head_w, y, sign, amp, p, n=arc_n) =
     [for (i = [1 : n - 1])
